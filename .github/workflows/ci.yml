@@ -1,0 +1,49 @@
+name: Build and Push Docker Images to ECR
+
+# This workflow runs on every push to the 'main' branch.
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  AWS_REGION: us-east-1 # Change if you used a different region.
+  ECR_REPOSITORY_BINANCE: binance-mcp
+  ECR_REPOSITORY_WEATHER: weather-mcp
+
+# Permissions needed for the passwordless authentication to work.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::093326771032:role/GitHubActionsRole
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push Binance MCP image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY_BINANCE }}:$IMAGE_TAG ./MCP
+          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY_BINANCE }}:$IMAGE_TAG
+
+      - name: Build, tag, and push Weather MCP image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY_WEATHER }}:$IMAGE_TAG ./MCP-2
+          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY_WEATHER }}:$IMAGE_TAG
